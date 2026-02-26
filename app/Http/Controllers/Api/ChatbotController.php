@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use App\Models\ScreeningReport;
+use Illuminate\Support\Facades\Cache;
 
 class ChatbotController extends Controller
 {
@@ -25,6 +26,48 @@ class ChatbotController extends Controller
         // MENGHITUNG SUDAH BERAPA KALI TEKTOK (Satu pasang = 2 elemen di array)
         // Jika array kosong, berarti ini pertanyaan pertama.
         $turnCount = floor(count($chatHistory) / 2) + 1;
+
+        // ==============================================================
+        // 🛡️ SISTEM KEAMANAN GANDA (Hanya dieksekusi di pertanyaan pertama)
+        // ==============================================================
+        if ($turnCount === 1) {
+            $clientIp = $request->ip();
+            $whatsapp = $userData['whatsapp'] ?? null;
+
+            // DAFTAR IP VIP (Bebas limitasi)
+            $whitelistedIps = ['192.168.0.204', '::1', '103.165.42.166'];
+
+            // 1. GEMBOK IP ADDRESS (Anti-Bot / Spam Klik)
+            if (!in_array($clientIp, $whitelistedIps)) {
+                // Hitung berapa kali IP ini mencoba memulai chat hari ini
+                $ipAttempts = Cache::get('chat_attempts_' . $clientIp, 0);
+                
+                if ($ipAttempts >= 2) { // Maksimal 2 kali percobaan form dari 1 IP
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Terlalu banyak permintaan dari jaringan Anda. Silakan coba lagi besok.'
+                    ], 429);
+                }
+                // Tambah hitungan percobaan untuk IP ini (disimpan selama 24 jam)
+                Cache::put('chat_attempts_' . $clientIp, $ipAttempts + 1, now()->addHours(24));
+            }
+
+            // 2. GEMBOK NOMOR WHATSAPP (Anti-Incognito & Anti Cross-Domain)
+            if ($whatsapp) {
+                $isLocked = ScreeningReport::where('created_at', '>=', now()->subHours(48))
+                    ->whereJsonContains('user_data->whatsapp', $whatsapp)
+                    ->where('status', 'valid') // Hanya kunci jika skrining sebelumnya berhasil sampai selesai
+                    ->exists();
+
+                if ($isLocked) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Nomor WhatsApp ini telah menyelesaikan skrining dalam 48 jam terakhir. Silakan coba lagi nanti atau hubungi Patient Advisor kami.'
+                    ], 429);
+                }
+            }
+        }
+        // ==============================================================
 
         // 1. Instruksi Sistem Super Ketat (IDENTITAS H.A.N.A DITAMBAHKAN DI SINI)
         $systemInstruction = "Nama Anda adalah H.A.N.A (Health Assessment & Navigation AHCC), asisten virtual medis dan navigator pasien di Rumah Sakit Kanker AHCC. 

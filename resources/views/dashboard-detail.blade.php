@@ -74,6 +74,22 @@
                                 @endforeach
                             </ul>
                         </div>
+                        @if(isset($report->report_data['recommendations']) && is_array($report->report_data['recommendations']) && count($report->report_data['recommendations']) > 0)
+                        <div class="mt-2">
+                            <p class="text-xs font-bold text-teal-600 uppercase mb-1 flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                Rekomendasi & Tindak Lanjut
+                            </p>
+                            <ul class="space-y-1.5 bg-teal-50 border border-teal-100 p-3.5 rounded-lg text-sm text-teal-800 font-medium">
+                                @foreach($report->report_data['recommendations'] as $saran)
+                                    <li class="flex items-start">
+                                        <span class="mr-2 mt-0.5 font-bold text-teal-500">•</span>
+                                        <span class="leading-relaxed">{{ $saran }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>
