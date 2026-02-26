@@ -42,6 +42,7 @@
                 <a href="/dashboard" class="text-teal-800 border-b-2 border-teal-600 pb-1 px-2 font-bold">Data Pasien</a>
                 <a href="/analytics" class="text-slate-500 hover:text-teal-800 pb-1 px-2 transition-colors">Analitik AI</a>
                 <a href="/marketing" class="text-slate-500 hover:text-teal-800 pb-1 px-2 transition-colors">Marketing AI</a>
+                <a href="{{ route('admin.settings') }}" class="text-teal-800 border-b-2 border-teal-600 pb-1 px-2 font-bold">Pengaturan AI</a>
             </div>
 
             <div class="flex items-center gap-4 pr-2">

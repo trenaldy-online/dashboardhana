@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\MarketingController;
+use App\Http\Controllers\SettingController;
 
 // Halaman Utama akan langsung diarahkan ke login
 Route::get('/', function () {
@@ -27,3 +28,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/marketing/chat', [MarketingController::class, 'chat']); // Untuk follow up chat
     Route::post('/marketing/reset', [MarketingController::class, 'reset']); // Untuk reset tanggal
 });
+
+// Catatan: Pastikan Anda nanti memasukkan route ini ke dalam middleware auth/admin Anda
+Route::get('/admin/setting-hana', [SettingController::class, 'index'])->name('admin.settings');
+Route::post('/admin/setting-hana/toggle', [SettingController::class, 'toggle'])->name('admin.settings.toggle');

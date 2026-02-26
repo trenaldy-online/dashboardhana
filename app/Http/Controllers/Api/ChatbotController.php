@@ -13,50 +13,69 @@ class ChatbotController extends Controller
 {
     public function chat(Request $request)
     {
+        $isFinalTurn = $request->input('isFinalTurn', false);
+        
+        // ==============================================================
+        // 1. CEK MODE SAAT INI DARI DATABASE (Fitur Toggle Admin)
+        // ==============================================================
+        // Jika tabel/setting belum ada, otomatis default ke 'strict' (aman)
+        $mode = \App\Models\Setting::where('key', 'form_mode')->value('value') ?? 'strict';
+
+        // ==============================================================
+        // 2. ATURAN VALIDASI DINAMIS (Satpam Pintar)
+        // ==============================================================
+        // Jika mode Strict ATAU ini adalah Turn Terakhir, maka WA & Email WAJIB!
+        $isWaEmailRequired = ($mode === 'strict' || $isFinalTurn) ? 'required' : 'nullable';
+
         $request->validate([
             'userData' => 'required|array',
+            'userData.name' => 'required|string',
+            'userData.age' => 'required|string',
+            'userData.gender' => 'required|string',
+            // Tambahan batas maksimal keluhan 1000 karakter agar token tidak dikuras hacker
+            'userData.chiefComplaint' => 'required|string|max:1000', 
+            'userData.whatsapp' => "$isWaEmailRequired|string", // <-- Dinamis mengikuti mode
+            'userData.email' => "$isWaEmailRequired|email",     // <-- Dinamis mengikuti mode
             'chatHistory' => 'required|array',
             'isFinalTurn' => 'required|boolean'
         ]);
 
         $userData = $request->userData;
         $chatHistory = $request->chatHistory; 
-        $isFinalTurn = $request->isFinalTurn;
 
-        // MENGHITUNG SUDAH BERAPA KALI TEKTOK (Satu pasang = 2 elemen di array)
-        // Jika array kosong, berarti ini pertanyaan pertama.
+        // MENGHITUNG SUDAH BERAPA KALI TEKTOK
         $turnCount = floor(count($chatHistory) / 2) + 1;
 
         // ==============================================================
-        // 🛡️ SISTEM KEAMANAN GANDA (Hanya dieksekusi di pertanyaan pertama)
+        // 🛡️ 3. SISTEM KEAMANAN GANDA (Hanya dieksekusi di pertanyaan pertama)
         // ==============================================================
         if ($turnCount === 1) {
             $clientIp = $request->ip();
-            $whatsapp = $userData['whatsapp'] ?? null;
+            $whatsapp = isset($userData['whatsapp']) ? trim($userData['whatsapp']) : null;
 
-            // DAFTAR IP VIP (Bebas limitasi)
-            $whitelistedIps = ['192.168.0.204', '::1', '103.165.42.166'];
+            // DAFTAR IP VIP (Kosongkan atau isikan IP Localhost saja saat testing)
+            $whitelistedIps = ['192.168.0.204', '::1'];
 
-            // 1. GEMBOK IP ADDRESS (Anti-Bot / Spam Klik)
+            // A. GEMBOK IP ADDRESS (Anti-Bot / Spam Klik)
             if (!in_array($clientIp, $whitelistedIps)) {
-                // Hitung berapa kali IP ini mencoba memulai chat hari ini
-                $ipAttempts = Cache::get('chat_attempts_' . $clientIp, 0);
+                $ipAttempts = \Illuminate\Support\Facades\Cache::get('chat_attempts_' . $clientIp, 0);
                 
-                if ($ipAttempts >= 2) { // Maksimal 2 kali percobaan form dari 1 IP
+                if ($ipAttempts >= 2) { 
                     return response()->json([
                         'status' => 'error',
                         'message' => 'Terlalu banyak permintaan dari jaringan Anda. Silakan coba lagi besok.'
                     ], 429);
                 }
-                // Tambah hitungan percobaan untuk IP ini (disimpan selama 24 jam)
-                Cache::put('chat_attempts_' . $clientIp, $ipAttempts + 1, now()->addHours(24));
+                \Illuminate\Support\Facades\Cache::put('chat_attempts_' . $clientIp, $ipAttempts + 1, now()->addHours(24));
             }
 
-            // 2. GEMBOK NOMOR WHATSAPP (Anti-Incognito & Anti Cross-Domain)
+            // B. GEMBOK NOMOR WHATSAPP 
+            // Mengecek WA HANYA JIKA pasien memasukkannya di awal (saat mode Strict)
             if ($whatsapp) {
-                $isLocked = ScreeningReport::where('created_at', '>=', now()->subHours(48))
-                    ->whereJsonContains('user_data->whatsapp', $whatsapp)
-                    ->where('status', 'valid') // Hanya kunci jika skrining sebelumnya berhasil sampai selesai
+                $isLocked = \App\Models\ScreeningReport::where('status', 'valid')
+                    ->where('created_at', '>=', now()->subHours(48))
+                    // Perbaikan query WA (Tidak pakai JsonContains karena string murni)
+                    ->where('user_data->whatsapp', $whatsapp) 
                     ->exists();
 
                 if ($isLocked) {
@@ -69,7 +88,7 @@ class ChatbotController extends Controller
         }
         // ==============================================================
 
-        // 1. Instruksi Sistem Super Ketat (IDENTITAS H.A.N.A DITAMBAHKAN DI SINI)
+        // 4. Instruksi Sistem Super Ketat (IDENTITAS H.A.N.A DITAMBAHKAN DI SINI)
         $systemInstruction = "Nama Anda adalah H.A.N.A (Health Assessment & Navigation AHCC), asisten virtual medis dan navigator pasien di Rumah Sakit Kanker AHCC. 
         ATURAN MUTLAK IDENTITAS: Anda DILARANG KERAS menyebut diri Anda sebagai AI, kecerdasan buatan, Gemini, atau buatan Google. Jika ditanya identitas, perkenalkan diri Anda dengan ramah sebagai HANA.
         
@@ -116,7 +135,7 @@ class ChatbotController extends Controller
             $systemInstruction .= " INI ADALAH GILIRAN TERAKHIR. Anda WAJIB menggunakan type: 'final_report'.";
         }
 
-        // 2. Menyusun format pesan (Mendukung Teks + BANYAK Gambar)
+        // 5. Menyusun format pesan (Mendukung Teks + BANYAK Gambar)
         $contents = [];
         foreach ($chatHistory as $chat) {
             $parts = [];
@@ -148,11 +167,11 @@ class ChatbotController extends Controller
             ];
         }
 
-        // 3. Panggil Gemini 3 Flash Preview (Mode Aman)
+        // 6. Panggil Gemini 3 Flash Preview (Mode Aman)
         $apiKey = trim(env('GEMINI_API_KEY'));
         $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={$apiKey}";
 
-        $response = Http::post($url, [
+        $response = \Illuminate\Support\Facades\Http::post($url, [
             "system_instruction" => [
                 "parts" => [["text" => $systemInstruction]]
             ],
@@ -171,8 +190,8 @@ class ChatbotController extends Controller
 
             // 1. JIKA PASIEN ISENG (NON-VALID), KITA TETAP SIMPAN SEBAGAI LOG ANALITIK
             if (isset($aiData['type']) && $aiData['type'] === 'rejected') {
-                ScreeningReport::create([
-                    'id' => (string) Str::uuid(),
+                \App\Models\ScreeningReport::create([
+                    'id' => (string) \Illuminate\Support\Str::uuid(),
                     'user_data' => $userData,
                     'status' => 'invalid', // Status Non-Valid
                     'ip_address' => $request->ip(),
@@ -184,8 +203,8 @@ class ChatbotController extends Controller
 
             // 2. JIKA LAPORAN FINAL (VALID), SIMPAN SEPERTI BIASA
             if (isset($aiData['type']) && $aiData['type'] === 'final_report') {
-                $reportId = (string) Str::uuid();
-                ScreeningReport::create([
+                $reportId = (string) \Illuminate\Support\Str::uuid();
+                \App\Models\ScreeningReport::create([
                     'id' => $reportId,
                     'user_data' => $userData,
                     'status' => 'valid', // Status Valid
