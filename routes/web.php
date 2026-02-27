@@ -27,8 +27,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/marketing/generate', [MarketingController::class, 'generate']);
     Route::post('/marketing/chat', [MarketingController::class, 'chat']); // Untuk follow up chat
     Route::post('/marketing/reset', [MarketingController::class, 'reset']); // Untuk reset tanggal
+    // Catatan: Pastikan Anda nanti memasukkan route ini ke dalam middleware auth/admin Anda
+    Route::get('/admin/setting-hana', [SettingController::class, 'index'])->name('admin.settings');
+    Route::post('/admin/setting-hana/toggle', [SettingController::class, 'toggle'])->name('admin.settings.toggle');
 });
 
-// Catatan: Pastikan Anda nanti memasukkan route ini ke dalam middleware auth/admin Anda
-Route::get('/admin/setting-hana', [SettingController::class, 'index'])->name('admin.settings');
-Route::post('/admin/setting-hana/toggle', [SettingController::class, 'toggle'])->name('admin.settings.toggle');

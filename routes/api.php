@@ -13,9 +13,6 @@ Route::get('/user', function (Request $request) {
 // Endpoint untuk menerima data screening
 Route::post('/screening', [ScreeningController::class, 'store']);
 
-// Route untuk fitur Chatbot AI
-Route::post('/chat', [ChatbotController::class, 'chat']);
-
 Route::get('/report/{id}', [App\Http\Controllers\Api\ChatbotController::class, 'getReport']);
 
 Route::get('/settings/form-mode', function () {
@@ -25,4 +22,12 @@ Route::get('/settings/form-mode', function () {
         'status' => 'success',
         'mode' => $mode
     ]);
+});
+
+// Batasi 15 request per 1 menit per IP Address
+Route::middleware('throttle:15,1')->group(function () {
+    
+    // Route chat AI Anda di sini
+    Route::post('/chat', [ChatbotController::class, 'chat']);
+    
 });

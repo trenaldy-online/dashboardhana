@@ -21,10 +21,20 @@ class SettingController extends Controller
     {
         $newMode = $request->input('mode'); // Akan berisi 'strict' atau 'relaxed'
         
-        Setting::updateOrCreate(
-            ['key' => 'form_mode'],
-            ['value' => $newMode]
-        );
+        // JURUS PAKSA SIMPAN (Mengabaikan aturan $fillable)
+        $setting = Setting::where('key', 'form_mode')->first();
+        
+        // Jika pengaturan belum ada sama sekali di database, buat baru
+        if (!$setting) {
+            $setting = new Setting();
+            $setting->key = 'form_mode';
+        }
+        
+        // Timpa nilainya dengan yang baru dari tombol
+        $setting->value = $newMode;
+        
+        // Paksa simpan ke database detik ini juga!
+        $setting->save();
 
         return redirect()->back()->with('success', 'Berhasil! H.A.N.A sekarang menggunakan Mode: ' . strtoupper($newMode));
     }
