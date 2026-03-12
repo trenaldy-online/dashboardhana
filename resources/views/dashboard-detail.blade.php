@@ -27,11 +27,23 @@
                 <div class="bg-teal-100 text-teal-600 p-4 rounded-full">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                 </div>
-                <div>
+                <div class="overflow-hidden">
                     <h2 class="text-2xl font-bold text-slate-900">{{ $report->user_data['name'] ?? 'Anonim' }}</h2>
                     <p class="text-slate-500">{{ $report->user_data['age'] ?? '-' }} Tahun • {{ $report->user_data['gender'] ?? '-' }} • WhatsApp: {{ $report->user_data['whatsapp'] ?? '-' }}</p>
                     <p class="text-slate-500 text-sm mt-1">Email: {{ $report->user_data['email'] ?? '-' }}</p>
-                </div>
+                    
+                    <p class="text-slate-500 text-sm mt-1 flex items-center gap-1">
+                        Sumber Akses: 
+                        @if(isset($report->user_data['source_url']))
+                            <a href="{{ $report->user_data['source_url'] }}" target="_blank" class="text-teal-600 hover:text-teal-800 hover:underline font-medium flex items-center gap-1 truncate max-w-[200px] md:max-w-xs" title="{{ $report->user_data['source_url'] }}">
+                                {{ $report->user_data['source_url'] }}
+                                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                            </a>
+                        @else
+                            <span class="text-slate-400 italic">Akses Langsung / Tidak terekam</span>
+                        @endif
+                    </p>
+                    </div>
             </div>
             
             @php

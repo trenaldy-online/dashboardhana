@@ -36,11 +36,23 @@ class ChatbotController extends Controller
             'userData.chiefComplaint' => 'required|string|max:1000', 
             'userData.whatsapp' => "$isWaEmailRequired|string", // <-- Dinamis mengikuti mode
             'userData.email' => "$isWaEmailRequired|email",     // <-- Dinamis mengikuti mode
+            'userData.source_url' => 'nullable|string',
             'chatHistory' => 'required|array',
             'isFinalTurn' => 'required|boolean'
         ]);
 
-        $userData = $request->userData;
+        // Mengambil data sebagai array murni
+        $userData = $request->input('userData');
+
+        // JURUS PAKSA: Pastikan source_url tidak tertinggal!
+        if ($request->has('userData.source_url')) {
+            $userData['source_url'] = $request->input('userData.source_url');
+        } elseif (isset($_SERVER['HTTP_REFERER'])) {
+            // Cadangan: Jika React gagal mengirim, ambil langsung dari data jaringan
+            $userData['source_url'] = $_SERVER['HTTP_REFERER'];
+        } else {
+            $userData['source_url'] = 'Akses Langsung / Tidak Terlacak';
+        }
         $chatHistory = $request->chatHistory; 
 
         // MENGHITUNG SUDAH BERAPA KALI TEKTOK
